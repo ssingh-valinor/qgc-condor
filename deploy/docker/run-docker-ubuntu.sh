@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+set -euo pipefail
 
-# Define variables for better maintainability
-DOCKERFILE_PATH="./deploy/docker/Dockerfile-build-ubuntu"
-IMAGE_NAME="qgc-ubuntu-docker"
-SOURCE_DIR="$(pwd)"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="${SOURCE_DIR}/build"
+DOCKERFILE_PATH="${SOURCE_DIR}/deploy/docker/Dockerfile-build-ubuntu"
+IMAGE_NAME="${IMAGE_NAME:-qgc-ubuntu-docker}"
+QGC_BUILD_TYPE="${QGC_BUILD_TYPE:-Release}"
 
-# Build the Docker image
-docker build --file "${DOCKERFILE_PATH}" -t "${IMAGE_NAME}" "${SOURCE_DIR}"
+mkdir -p "${BUILD_DIR}"
 
-# Run the Docker container with necessary permissions and volume mounts
+docker build --file "${DOCKERFILE_PATH}" --tag "${IMAGE_NAME}" "${SOURCE_DIR}"
+
+# Running as the invoking user keeps the artifacts in build/ owned by the host
+# user instead of root. Pointing HOME at the bind-mounted build directory also
+# persists the ccache between runs, which the container would otherwise discard.
+# No FUSE device or added capability is required because the image sets
+# APPIMAGE_EXTRACT_AND_RUN.
 docker run \
   --rm \
-  --cap-add SYS_ADMIN \
-  --device /dev/fuse \
-  --security-opt apparmor:unconfined \
-  -v "${SOURCE_DIR}:/project/source" \
-  -v "${BUILD_DIR}:/project/build" \
+  --user "$(id -u):$(id -g)" \
+  --env HOME=/project/build \
+  --env QGC_BUILD_TYPE="${QGC_BUILD_TYPE}" \
+  --volume "${SOURCE_DIR}:/project/source" \
+  --volume "${BUILD_DIR}:/project/build" \
   "${IMAGE_NAME}"

@@ -18,7 +18,9 @@ echo "QT_MODULES $QT_MODULES"
 
 apt update
 apt install python3 python3-pip -y
-pip3 install setuptools wheel py7zr ninja cmake aqtinstall
+# cmake comes from pip because CMakeLists.txt requires 3.25 and Ubuntu 22.04
+# only packages 3.22. Do not drop it in favour of the apt package.
+pip3 install --no-cache-dir setuptools wheel py7zr ninja "cmake>=3.25" aqtinstall
 aqt install-qt ${QT_HOST} ${QT_TARGET} ${QT_VERSION} ${QT_ARCH} -O ${QT_PATH} -m ${QT_MODULES}
 export PATH=$(readlink -e ${QT_PATH}/${QT_VERSION}/${QT_ARCH}/bin/):$PATH
 export PKG_CONFIG_PATH=$(readlink -e ${QT_PATH}/${QT_VERSION}/${QT_ARCH}/lib/pkgconfig):$PKG_CONFIG_PATH

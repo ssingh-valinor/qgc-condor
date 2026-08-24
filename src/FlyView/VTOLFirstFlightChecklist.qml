@@ -11,12 +11,16 @@ Item {
     PreFlightCheckModel {
         id:     listModel
         PreFlightCheckGroup {
-            name: qsTr("VTOL Initial Checks")
+            name: qsTr("First Flight")
 
             PreFlightCheckButton {
                 name:           qsTr("Hardware")
                 manualText:     qsTr("Props mounted? Wings secured? Tail secured?")
             }
+        }
+
+        PreFlightCheckGroup {
+            name: qsTr("Automated Checks")
 
             PreFlightBatteryCheck {
                 failurePercent:                 40

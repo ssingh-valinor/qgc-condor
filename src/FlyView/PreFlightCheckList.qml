@@ -20,6 +20,13 @@ ColumnLayout {
     property bool allChecksPassed:  false
     property var  vehicleCopy:      globals.activeVehicle
 
+    // Some airframes offer alternative checklists which the operator picks between, such as a VTOL first
+    // flight versus flying again after a previous flight. Each entry is a { name, source } pair. A list with
+    // a single entry means the airframe has nothing to select and the selector stays hidden.
+    property var    _checklistVariants: []
+    property int    _variantIndex:      0
+    property string _variantsKey:       ""    ///< Identifies the current variant list so airframe changes can be detected
+
     onVehicleCopyChanged: {
         if (checkListRepeater.model) {
             checkListRepeater.model.reset()
@@ -27,10 +34,8 @@ ColumnLayout {
     }
 
     onAllChecksPassedChanged: {
-        if (allChecksPassed) {
-            globals.activeVehicle.checkListState = Vehicle.CheckListPassed
-        } else {
-            globals.activeVehicle.checkListState = Vehicle.CheckListFailed
+        if (globals.activeVehicle) {
+            globals.activeVehicle.checkListState = allChecksPassed ? Vehicle.CheckListPassed : Vehicle.CheckListFailed
         }
     }
 
@@ -58,27 +63,55 @@ ColumnLayout {
         allChecksPassed = allPassed;
     }
 
-    //-- Pick a checklist model that matches the current airframe type (if any)
+    function _variant(name, fileName) {
+        return { name: name, source: "qrc:/qml/QGroundControl/FlyView/" + fileName }
+    }
+
+    //-- Pick the checklist variants that match the current airframe type (if any)
     function _updateModel() {
         var vehicle = globals.activeVehicle
         if (!vehicle) {
             vehicle = QGroundControl.multiVehicleManager.offlineEditingVehicle
         }
 
-        if(vehicle.multiRotor) {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/MultiRotorChecklist.qml"
-        } else if(vehicle.vtol) {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/VTOLChecklist.qml"
-        } else if(vehicle.rover) {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/RoverChecklist.qml"
-        } else if(vehicle.sub) {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/SubChecklist.qml"
-        } else if(vehicle.fixedWing) {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/FixedWingChecklist.qml"
+        var variants
+        if (vehicle.multiRotor) {
+            variants = [ _variant(qsTr("Multirotor"), "MultiRotorChecklist.qml") ]
+        } else if (vehicle.vtol) {
+            variants = [ _variant(qsTr("First Flight"),       "VTOLFirstFlightChecklist.qml"),
+                         _variant(qsTr("Subsequent Flights"), "VTOLSubsequentFlightsChecklist.qml") ]
+        } else if (vehicle.rover) {
+            variants = [ _variant(qsTr("Rover"), "RoverChecklist.qml") ]
+        } else if (vehicle.sub) {
+            variants = [ _variant(qsTr("Sub"), "SubChecklist.qml") ]
+        } else if (vehicle.fixedWing) {
+            variants = [ _variant(qsTr("Fixed Wing"), "FixedWingChecklist.qml") ]
         } else {
-            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/DefaultChecklist.qml"
+            variants = [ _variant(qsTr("Generic"), "DefaultChecklist.qml") ]
         }
-        return
+
+        // Only reset the selection when the airframe changed. Reopening the popup must not throw away a
+        // checklist the operator already worked through.
+        var variantsKey = variants.map(function(variant) { return variant.source }).join(",")
+        if (variantsKey !== _variantsKey) {
+            _variantsKey        = variantsKey
+            _checklistVariants  = variants
+            _selectVariant(0)
+        }
+    }
+
+    function _selectVariant(index) {
+        if (index < 0 || index >= _checklistVariants.length) {
+            return
+        }
+        _variantIndex = index
+
+        // Switching to a different checklist invalidates whatever the operator had already confirmed
+        var source = _checklistVariants[index].source
+        if (modelContainer.source.toString() !== source) {
+            allChecksPassed         = false
+            modelContainer.source   = source
+        }
     }
 
     Component.onCompleted: {
@@ -109,6 +142,23 @@ ColumnLayout {
             delayedGroupPassed.restart()
         } else {
             _handleGroupPassedChanged(index, passed)
+        }
+    }
+
+    // Checklist selector, only shown for airframes which offer more than one checklist
+    RowLayout {
+        Layout.fillWidth:   true
+        spacing:            ScreenTools.defaultFontPixelWidth * 2
+        visible:            _checklistVariants.length > 1
+
+        Repeater {
+            model: _checklistVariants
+
+            QGCRadioButton {
+                text:       modelData.name
+                checked:    index === _variantIndex
+                onClicked:  _selectVariant(index)
+            }
         }
     }
 

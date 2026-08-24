@@ -69,7 +69,8 @@ qt_add_qml_module(FlyViewModule
         TerrainProgress.qml
         VehicleWarnings.qml
         VirtualJoystick.qml
-        VTOLChecklist.qml
+        VTOLFirstFlightChecklist.qml
+        VTOLSubsequentFlightsChecklist.qml
     NO_PLUGIN
 )
 

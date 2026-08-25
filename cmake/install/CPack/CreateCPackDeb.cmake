@@ -47,12 +47,9 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # set(CPACK_DEBIAN_PACKAGE_PREDEPENDS
 # set(CPACK_DEBIAN_PACKAGE_ENHANCES
 # set(CPACK_DEBIAN_PACKAGE_BREAKS
-# Renamed from upstream's "qgroundcontrol", which stages the same bundled Qt and
-# GStreamer paths under /usr. dpkg would abort on that file overlap without
-# Conflicts, and needs Replaces to hand the files over when upgrading from it.
-set(CPACK_DEBIAN_PACKAGE_CONFLICTS "qgroundcontrol")
-set(CPACK_DEBIAN_PACKAGE_REPLACES "qgroundcontrol")
+# set(CPACK_DEBIAN_PACKAGE_CONFLICTS
 # set(CPACK_DEBIAN_PACKAGE_PROVIDES
+# set(CPACK_DEBIAN_PACKAGE_REPLACES
 # set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
 # set(CPACK_DEBIAN_PACKAGE_SUGGESTS
 # set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS

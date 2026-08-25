@@ -8,7 +8,7 @@ Debian package (integrates with the system, recommended on Debian/Ubuntu).
 ## Install: Debian package
 
 ```sh
-sudo apt install ./QGC-Condor_*_amd64.deb
+sudo apt install ./QGroundControl_*_amd64.deb
 ```
 
 The leading `./` is required. Without it, apt looks for a package by that name
@@ -24,21 +24,21 @@ file. The install still succeeds. To avoid the note, stage the package somewhere
 world-readable first:
 
 ```sh
-cp QGC-Condor_*_amd64.deb /tmp/
-sudo apt install /tmp/QGC-Condor_*_amd64.deb
+cp QGroundControl_*_amd64.deb /tmp/
+sudo apt install /tmp/QGroundControl_*_amd64.deb
 ```
 
 Uninstall:
 
 ```sh
-sudo apt remove qgc-condor
+sudo apt remove qgroundcontrol
 ```
 
 ## Install: AppImage
 
 ```sh
-chmod +x QGC-Condor-x86_64.AppImage
-./QGC-Condor-x86_64.AppImage
+chmod +x QGroundControl-x86_64.AppImage
+./QGroundControl-x86_64.AppImage
 ```
 
 The AppImage requires FUSE 2:
@@ -49,7 +49,7 @@ The AppImage requires FUSE 2:
 If FUSE cannot be installed, run the bundle unpacked instead:
 
 ```sh
-./QGC-Condor-x86_64.AppImage --appimage-extract-and-run
+./QGroundControl-x86_64.AppImage --appimage-extract-and-run
 ```
 
 ### Launcher icon
@@ -59,7 +59,7 @@ and window list show a generic icon rather than the application's own. To
 register it:
 
 ```sh
-./QGC-Condor-x86_64.AppImage --desktop-icon y
+./QGroundControl-x86_64.AppImage --desktop-icon y
 ```
 
 This copies the desktop entry and icons into `~/.local/share`, pointing at the
@@ -70,7 +70,7 @@ moving or renaming the AppImage to repair the entry.
 To undo:
 
 ```sh
-./QGC-Condor-x86_64.AppImage --desktop-icon n
+./QGroundControl-x86_64.AppImage --desktop-icon n
 ```
 
 Already-running windows keep the icon they started with. Restart the
@@ -120,8 +120,8 @@ inside the build image, so nothing else needs to be installed.
 
 Both packages are written to `build/`:
 
-- `QGC-Condor-x86_64.AppImage`
-- `QGC-Condor_<version>_amd64.deb`
+- `QGroundControl-x86_64.AppImage`
+- `QGroundControl_<version>_amd64.deb`
 
 The first run downloads the base image and compiles from scratch, which takes a
 while. Later runs reuse the cached image and the existing `build/` directory, so

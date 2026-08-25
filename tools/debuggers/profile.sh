@@ -252,13 +252,13 @@ run_sanitize() {
     cmake --build "$sanitize_build" --parallel
 
     log_ok "Sanitizer build complete"
-    log_info "Run: $sanitize_build/QGC-Condor"
+    log_info "Run: $sanitize_build/QGroundControl"
     log_info "Errors will be reported at runtime"
 
     export ASAN_OPTIONS="detect_leaks=1:halt_on_error=0:print_stats=1"
     export UBSAN_OPTIONS="print_stacktrace=1"
 
-    "$sanitize_build/QGC-Condor" $EXTRA_ARGS
+    "$sanitize_build/QGroundControl" $EXTRA_ARGS
 }
 
 # Main

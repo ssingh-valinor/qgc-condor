@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>@QGC_PACKAGE_NAME@</id>
-  <name>@QGC_APP_NAME@</name>
+  <name>@QGC_APP_DISPLAY_NAME@</name>
   <launchable type="desktop-id">@QGC_PACKAGE_NAME@.desktop</launchable>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -9,7 +9,7 @@
   <content_rating type="oars-1.1"/>
 
   <developer id="com.@QGC_APPIMAGE_APPDATA_DEVELOPER@">
-    <name translate="no">@QGC_APP_NAME@</name>
+    <name translate="no">@QGC_ORG_NAME@</name>
   </developer>
 
   <summary>@QGC_APP_DESCRIPTION@</summary>

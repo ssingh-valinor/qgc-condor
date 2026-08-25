@@ -9,6 +9,178 @@ if [ -z "$APPDIR" ]; then
     fi
 fi
 
+# ----------------------------------------------------------------------------
+# Optional desktop integration: --desktop-icon y|n
+#
+# An AppImage is invisible to the desktop's application and icon databases: the
+# .desktop entry and icons shipped in this bundle live inside the squashfs and
+# never reach XDG_DATA_HOME. GNOME/KDE therefore cannot match a window back to
+# an application entry and fall back to a generic executable icon (a grey gear
+# under Yaru/Adwaita), no matter what the app sets via setWindowIcon(). Copying
+# the entry and icons into the user's data dir is what makes the real icon show
+# up in the dock, Activities and app launchers.
+#
+# Opt-in only: writing to the user's home uninvited is impolite, so nothing
+# happens unless --desktop-icon is passed explicitly. The flag is consumed here
+# and never forwarded to the application. Re-running is safe -- it overwrites,
+# which also repairs Exec= after the AppImage has been moved or renamed.
+# ----------------------------------------------------------------------------
+_xdg_data_home() {
+    echo "${XDG_DATA_HOME:-$HOME/.local/share}"
+}
+
+_desktop_entry_source() {
+    # Globbed rather than hardcoded so custom builds, which rename the package
+    # via QGC_PACKAGE_NAME, integrate without anyone editing this script.
+    local _f
+    for _f in "${APPDIR}/usr/share/applications/"*.desktop; do
+        if [ -f "$_f" ]; then
+            echo "$_f"
+            return 0
+        fi
+    done
+    return 1
+}
+
+_refresh_desktop_caches() {
+    local _data_home="$1"
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "${_data_home}/applications" >/dev/null 2>&1 || true
+    fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        # -t skips the index.theme requirement, which XDG_DATA_HOME usually lacks
+        gtk-update-icon-cache -f -t "${_data_home}/icons/hicolor" >/dev/null 2>&1 || true
+    fi
+}
+
+_install_desktop_integration() {
+    local _data_home _src _dst _target _exec_value
+    _data_home="$(_xdg_data_home)"
+
+    if ! _src="$(_desktop_entry_source)"; then
+        echo "Error: no .desktop entry found in ${APPDIR}/usr/share/applications/" >&2
+        return 1
+    fi
+
+    # Exec= must be an absolute path to the bundle itself. $APPIMAGE is set by
+    # the AppImage runtime; fall back to this AppRun for an extracted AppDir.
+    _target="${APPIMAGE:-${APPDIR}/AppRun}"
+    if [ ! -e "$_target" ]; then
+        echo "Error: cannot resolve this bundle's path for Exec= (tried '${_target}')" >&2
+        return 1
+    fi
+
+    if ! mkdir -p "${_data_home}/applications"; then
+        echo "Error: could not create ${_data_home}/applications" >&2
+        return 1
+    fi
+
+    # Exec is a command line, so the path needs Desktop Entry spec quoting or a
+    # bundle living under e.g. "~/My Apps/" would be parsed as two arguments.
+    # Inside the quotes, " ` $ and \ must each be backslash-escaped.
+    _exec_value="\"$(printf '%s' "$_target" | sed 's/[\\"`$]/\\&/g')\""
+
+    # TryExec is a plain path rather than a command line, so it is left unquoted.
+    # It lets launchers hide the entry by themselves once the AppImage is deleted
+    # or moved, instead of leaving a dead launcher behind.
+    _dst="${_data_home}/applications/$(basename "$_src")"
+    # Values are passed through the environment, not awk -v, because -v applies
+    # escape-sequence processing that would corrupt a backslash in a path.
+    if ! _QGC_EXEC="$_exec_value" _QGC_TRYEXEC="$_target" awk '
+            /^TryExec=/ { next }
+            /^Exec=/ && !seen {
+                print "Exec=" ENVIRON["_QGC_EXEC"]
+                print "TryExec=" ENVIRON["_QGC_TRYEXEC"]
+                seen = 1
+                next
+            }
+            { print }
+        ' "$_src" > "$_dst"; then
+        echo "Error: could not write ${_dst}" >&2
+        return 1
+    fi
+    chmod 644 "$_dst"
+
+    # Copy the whole hicolor tree: Icon= is resolved through the icon theme by
+    # name, so every size the bundle ships has to land under the same relative
+    # path for the lookup to succeed.
+    if [ -d "${APPDIR}/usr/share/icons/hicolor" ]; then
+        mkdir -p "${_data_home}/icons"
+        cp -rf "${APPDIR}/usr/share/icons/hicolor" "${_data_home}/icons/" || true
+    else
+        echo "Warning: no icons found in ${APPDIR}/usr/share/icons/hicolor" >&2
+    fi
+
+    _refresh_desktop_caches "$_data_home"
+    echo "Desktop entry installed: ${_dst}" >&2
+    echo "Exec=${_exec_value}" >&2
+    echo "The launcher icon applies to newly started windows; restart ${QGC_NAME:-the app} to pick it up." >&2
+}
+
+_remove_desktop_integration() {
+    local _data_home _src _name _rel _icon_root
+    _data_home="$(_xdg_data_home)"
+
+    if ! _src="$(_desktop_entry_source)"; then
+        echo "Error: no .desktop entry found in ${APPDIR}/usr/share/applications/" >&2
+        return 1
+    fi
+    _name="$(basename "$_src")"
+    rm -f "${_data_home}/applications/${_name}"
+
+    # Remove only the files this bundle would have installed -- never recurse
+    # over the user's icon directory, which holds other applications' icons.
+    _icon_root="${APPDIR}/usr/share/icons/hicolor"
+    if [ -d "$_icon_root" ]; then
+        while IFS= read -r _rel; do
+            [ -n "$_rel" ] && rm -f "${_data_home}/icons/hicolor/${_rel}"
+        done < <(cd "$_icon_root" && find . -type f -printf '%P\n' 2>/dev/null)
+    fi
+
+    _refresh_desktop_caches "$_data_home"
+    echo "Desktop entry removed: ${_data_home}/applications/${_name}" >&2
+}
+
+# Consume --desktop-icon before the application sees it; everything else is
+# forwarded untouched, preserving arguments that contain spaces.
+_desktop_icon_action="__absent__"
+_qgc_args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --desktop-icon)
+            _desktop_icon_action="${2-}"
+            shift 2 || shift
+            ;;
+        --desktop-icon=*)
+            _desktop_icon_action="${1#*=}"
+            shift
+            ;;
+        *)
+            _qgc_args+=("$1")
+            shift
+            ;;
+    esac
+done
+set -- "${_qgc_args[@]}"
+
+if [ "$_desktop_icon_action" != "__absent__" ]; then
+    case "$(printf '%s' "$_desktop_icon_action" | tr '[:upper:]' '[:lower:]')" in
+        y|yes|true|1)
+            _install_desktop_integration || exit 1
+            ;;
+        n|no|false|0)
+            _remove_desktop_integration || exit 1
+            ;;
+        *)
+            echo "Error: --desktop-icon expects y or n (got '${_desktop_icon_action}')" >&2
+            exit 2
+            ;;
+    esac
+    # A management action, not a launch mode: exiting keeps this usable from a
+    # post-install script without spawning a GUI.
+    exit 0
+fi
+
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64)  MULTIARCH="x86_64-linux-gnu" ;;
@@ -81,7 +253,7 @@ export PYTHONNOUSERSITE=1
 export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 QGC_BINARY=""
-for expected_name in QGroundControl Custom-QGroundControl; do
+for expected_name in QGC-Condor QGroundControl Custom-QGroundControl; do
     if [ -x "${APPDIR}/usr/bin/${expected_name}" ] && [ -f "${APPDIR}/usr/bin/${expected_name}" ]; then
         QGC_BINARY="${APPDIR}/usr/bin/${expected_name}"
         break

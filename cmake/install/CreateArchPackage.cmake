@@ -5,6 +5,10 @@
 # makepkg failure is non-fatal — the AppImage is the real Arch deliverable.
 # ============================================================================
 
+# pkgname: makepkg requires lowercase, the same constraint CPackDeb applies to
+# the .deb, so both package names track QGC_APP_NAME without hardcoding it.
+string(TOLOWER "${CMAKE_PROJECT_NAME}" QGC_ARCH_PKGNAME)
+
 # pkgver: strip the git-describe 'v' prefix and map '-' to '.' (makepkg forbids '-').
 string(REGEX REPLACE "^v" "" QGC_ARCH_PKGVER "${QGC_APP_VERSION_STR}")
 string(REPLACE "-" "." QGC_ARCH_PKGVER "${QGC_ARCH_PKGVER}")

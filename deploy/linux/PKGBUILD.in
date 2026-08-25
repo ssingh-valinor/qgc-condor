@@ -5,7 +5,7 @@
 # published distributable.
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154  # makepkg consumes these globals / sets $pkgdir
-pkgname=qgroundcontrol
+pkgname=@QGC_ARCH_PKGNAME@
 # Version is resolved by CMake from git-describe; makepkg forbids '-' in pkgver.
 pkgver=@QGC_ARCH_PKGVER@
 pkgrel=1

@@ -40,7 +40,9 @@ ColumnLayout {
     }
 
     function _handleGroupPassedChanged(index, passed) {
-        if (passed) {
+        // Checklists which enforce ordering walk the operator through one group at a time, collapsing each
+        // as it passes. Checklists which don't leave every group open for the operator to expand at will.
+        if (passed && checkListRepeater.model && checkListRepeater.model.enforceOrder) {
             // Collapse current group
             var group = checkListRepeater.itemAt(index)
             group._checked = false

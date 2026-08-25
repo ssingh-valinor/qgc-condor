@@ -9,13 +9,25 @@ import QGroundControl.FlyView
 Item {
     property var model: listModel
     PreFlightCheckModel {
-        id:     listModel
+        id:             listModel
+        // Let the operator open any group at will instead of unlocking them one at a time
+        enforceOrder:   false
         PreFlightCheckGroup {
             name: qsTr("First Flight")
 
             PreFlightCheckButton {
-                name:           qsTr("Hardware")
-                manualText:     qsTr("Props mounted? Wings secured? Tail secured?")
+                name:           qsTr("Motor")
+                manualText:     qsTr("Motor direction?")
+            }
+
+            PreFlightCheckButton {
+                name:           qsTr("Prop")
+                manualText:     qsTr("Prop installation?")
+            }
+
+            PreFlightCheckButton {
+                name:           qsTr("Tail")
+                manualText:     qsTr("Tail secured?")
             }
         }
 

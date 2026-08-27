@@ -38,8 +38,7 @@ Item {
             name: qsTr("Automated Checks")
 
             PreFlightBatteryCheck {
-                failurePercent:                 40
-                allowFailurePercentOverride:    false
+                failurePercent: 40
             }
 
             PreFlightSensorsHealthCheck {

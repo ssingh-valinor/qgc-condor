@@ -47,6 +47,12 @@ VehicleFactGroup::VehicleFactGroup(QObject *parent)
     // Match the legacy sentinel so QML `rcRSSI > 0 && rcRSSI <= 100` checks read "unavailable"
     // until the first RC_CHANNELS message arrives.
     _rcRSSIFact.setRawValue(255);
+
+    // Message receipt raises the streaming flags immediately; only the transition back down needs
+    // polling, since a stream that stops sends nothing to react to.
+    _streamWatchdogTimer.setInterval(_streamWatchdogIntervalMSecs);
+    (void) connect(&_streamWatchdogTimer, &QTimer::timeout, this, &VehicleFactGroup::_updateStreamingState);
+    _streamWatchdogTimer.start();
 }
 
 void VehicleFactGroup::updateRCRSSI(uint8_t rssi)
@@ -99,6 +105,12 @@ void VehicleFactGroup::handleMessage(Vehicle *vehicle, const mavlink_message_t &
         break;
     case MAVLINK_MSG_ID_RANGEFINDER:
         _handleRangefinder(message);
+        break;
+    case MAVLINK_MSG_ID_HIGHRES_IMU:
+        _handleHighresImu(vehicle, message);
+        break;
+    case MAVLINK_MSG_ID_RC_CHANNELS:
+        _handleRcChannels(vehicle, message);
         break;
     default:
         break;
@@ -243,4 +255,41 @@ void VehicleFactGroup::_handleRangefinder(const mavlink_message_t &message)
     rangeFinderDist()->setRawValue(qIsNaN(rangefinder.distance) ? 0 : rangefinder.distance);
 
     _setTelemetryAvailable(true);
+}
+
+void VehicleFactGroup::_handleHighresImu(Vehicle *vehicle, const mavlink_message_t &message)
+{
+    // Only the flight controller's own stream counts. A gimbal or companion computer publishing
+    // HIGHRES_IMU must not satisfy the preflight IMU check.
+    if ((message.sysid != vehicle->id()) || (message.compid != vehicle->compId())) {
+        return;
+    }
+
+    _lastHighresImuElapsed.restart();
+    _updateStreamingState();
+}
+
+void VehicleFactGroup::_handleRcChannels(Vehicle *vehicle, const mavlink_message_t &message)
+{
+    if ((message.sysid != vehicle->id()) || (message.compid != vehicle->compId())) {
+        return;
+    }
+
+    _lastRcChannelsElapsed.restart();
+    _updateStreamingState();
+}
+
+void VehicleFactGroup::_updateStreamingState()
+{
+    const bool imuStreaming = _lastHighresImuElapsed.isValid() && (_lastHighresImuElapsed.elapsed() < _streamTimeoutMSecs);
+    if (imuStreaming != _imuDataStreaming) {
+        _imuDataStreaming = imuStreaming;
+        emit imuDataStreamingChanged(_imuDataStreaming);
+    }
+
+    const bool rcStreaming = _lastRcChannelsElapsed.isValid() && (_lastRcChannelsElapsed.elapsed() < _streamTimeoutMSecs);
+    if (rcStreaming != _rcDataStreaming) {
+        _rcDataStreaming = rcStreaming;
+        emit rcDataStreamingChanged(_rcDataStreaming);
+    }
 }

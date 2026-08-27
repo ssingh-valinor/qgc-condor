@@ -29,6 +29,9 @@ Item {
                 name:           qsTr("TODO3")
                 manualText:     qsTr("To do 3?")
             }
+
+            PreFlightRCCheck {
+            }
         }
 
         PreFlightCheckGroup {
@@ -42,12 +45,14 @@ Item {
             PreFlightSensorsHealthCheck {
             }
 
-            PreFlightGPSCheck {
-                failureSatCount:        9
-                allowOverrideSatCount:  true
+            PreFlightIMUCheck {
             }
 
-            PreFlightRCCheck {
+            PreFlightRadioCheck {
+            }
+
+            PreFlightGPSCheck {
+                minSatCount: 5
             }
         }
 

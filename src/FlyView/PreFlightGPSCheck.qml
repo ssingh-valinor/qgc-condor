@@ -4,19 +4,18 @@ import QGroundControl
 import QGroundControl.Controls
 
 PreFlightCheckButton {
-    name:                           qsTr("GPS")
-    telemetryFailure:               _3dLockFailure || _satCountFailure
-    telemetryTextFailure:           _3dLockFailure ?
-                                        qsTr("Waiting for 3D lock.") :
-                                        (_satCountFailure ? _satCountFailureText : "")
-    allowTelemetryFailureOverride:  !_3dLockFailure && _satCountFailure && allowOverrideSatCount
+    name:                   qsTr("GPS")
+    telemetryFailure:       _noGpsFailure || _satCountFailure
+    // A low sat count on top of a valid 3D fix is shown as a warning rather than a hard failure, but
+    // it still blocks the check. Neither state can be clicked past.
+    telemetryWarning:       !_noGpsFailure && _satCountFailure
+    telemetryTextFailure:   _noGpsFailure ?
+                                qsTr("No GPS / sat") :
+                                qsTr("Sat count below %1").arg(minSatCount)
 
-    property bool   allowOverrideSatCount:  false   ///< true: sat count above failureSatCount reguired to pass, false: user can click past satCount <= failureSetCount
-    property int    failureSatCount:        -1      ///< -1 indicates no sat count check
+    property int    minSatCount:        5   ///< Sat count required to pass once a 3D fix is available
 
-    property bool   _3dLock:                globals.activeVehicle ? globals.activeVehicle.gps.lock.rawValue >= 3 : false
-    property int    _satCount:              globals.activeVehicle ? globals.activeVehicle.gps.count.rawValue : 0
-    property bool   _3dLockFailure:         !_3dLock
-    property bool   _satCountFailure:       failureSatCount !== -1 && _satCount <= failureSatCount
-    property string _satCountFailureText:   allowOverrideSatCount ? qsTr("Warning - Sat count below %1.").arg(failureSatCount + 1) : qsTr("Waiting for sat count above %1.").arg(failureSatCount)
+    property bool   _noGpsFailure:      globals.activeVehicle ? globals.activeVehicle.gps.lock.rawValue < 3 : true
+    property int    _satCount:          globals.activeVehicle ? globals.activeVehicle.gps.count.rawValue : 0
+    property bool   _satCountFailure:   _satCount < minSatCount
 }

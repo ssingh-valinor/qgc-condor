@@ -12,7 +12,8 @@ import QGroundControl.Controls
 ///     Manual - This is simply a check which the user must verify and confirm. It is not based on any system state.
 ///     Telemetry - This type of check can fail due to some state within the system. A telemetry check failure can be
 ///                 a hard stop in that there is no way to pass the checklist until the system state resolves itself.
-///                 Or it can also optionally be override by the user.
+///                 Or it can also optionally be override by the user. A hard stop can additionally be flagged as a
+///                 warning, which shows amber rather than red but still blocks the check from passing.
 /// If a button uses both manual and telemetry checks, the telemetry check takes precendence and must be passed first.
 QGCButton {
     property string name:                           ""
@@ -20,6 +21,7 @@ QGCButton {
     property string telemetryTextFailure                    ///< text to show if telemetry check failed (override not allowed)
     property bool   telemetryFailure:               false   ///< true: telemetry check failing, false: telemetry check passing
     property bool   allowTelemetryFailureOverride:  false   ///< true: user can click past telemetry failure
+    property bool   telemetryWarning:               false   ///< true: show a telemetry failure as a warning (amber) instead of a hard failure (red). Still blocks the check from passing.
     property bool   passed:                         _manualState === _statePassed && _telemetryState === _statePassed
     property bool   failed:                         _manualState === _stateFailed || _telemetryState === _stateFailed
 
@@ -32,6 +34,7 @@ QGCButton {
     readonly property int _statePending:    0   ///< Telemetry check is failing or manual check not yet verified, user can click to make it pass
     readonly property int _stateFailed:     1   ///< Telemetry check is failing, user cannot click to make it pass
     readonly property int _statePassed:     2   ///< Check has passed
+    readonly property int _stateWarning:    3   ///< Telemetry check is failing as a warning, user cannot click to make it pass
 
     readonly property color _passedColor:   "#86cc6a"
     readonly property color _pendingColor:  "#f7a81f"
@@ -43,9 +46,9 @@ QGCButton {
                                (_manualState !== _statePassed ? manualText : qsTr("Passed")))
     property color  _color: _telemetryState === _statePassed && _manualState === _statePassed ?
                                 _passedColor :
-                                (_telemetryState == _stateFailed ?
+                                (_telemetryState === _stateFailed ?
                                      _failedColor :
-                                     (_telemetryState === _statePending || _manualState === _statePending ?
+                                     (_telemetryState === _stateWarning || _telemetryState === _statePending || _manualState === _statePending ?
                                           _pendingColor :
                                           _failedColor))
 
@@ -78,7 +81,11 @@ QGCButton {
     function _updateTelemetryState() {
         if (telemetryFailure) {
             // We have a new telemetry failure, reset user pass
-            _telemetryState = allowTelemetryFailureOverride ? _statePending : _stateFailed
+            if (allowTelemetryFailureOverride) {
+                _telemetryState = _statePending
+            } else {
+                _telemetryState = telemetryWarning ? _stateWarning : _stateFailed
+            }
         } else {
             _telemetryState = _statePassed
         }
@@ -86,6 +93,7 @@ QGCButton {
 
     onTelemetryFailureChanged:              _updateTelemetryState()
     onAllowTelemetryFailureOverrideChanged: _updateTelemetryState()
+    onTelemetryWarningChanged:              _updateTelemetryState()
 
     onClicked: {
         if (telemetryFailure && !allowTelemetryFailureOverride) {
@@ -114,11 +122,7 @@ QGCButton {
 
     function reset() {
         _manualState = manualText === "" ? _statePassed : _statePending
-        if (telemetryFailure) {
-            _telemetryState = allowTelemetryFailureOverride ? _statePending : _stateFailed
-        } else {
-            _telemetryState = _statePassed
-        }
+        _updateTelemetryState()
     }
 
 }

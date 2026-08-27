@@ -58,6 +58,8 @@ qt_add_qml_module(FlyViewModule
         PreFlightCheckList.qml
         PreFlightCheckListShowAction.qml
         PreFlightGPSCheck.qml
+        PreFlightIMUCheck.qml
+        PreFlightRadioCheck.qml
         PreFlightRCCheck.qml
         PreFlightSensorsHealthCheck.qml
         PreFlightSoundCheck.qml

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtCore/QElapsedTimer>
+
 #include "FactGroup.h"
 
 class VehicleFactGroup : public FactGroup
@@ -36,6 +38,8 @@ class VehicleFactGroup : public FactGroup
     Q_PROPERTY(Fact *throttlePct            READ throttlePct            CONSTANT)
     Q_PROPERTY(Fact *imuTemp                READ imuTemp                CONSTANT)
     Q_PROPERTY(Fact *rcRSSI                 READ rcRSSI                 CONSTANT)
+    Q_PROPERTY(bool imuDataStreaming        READ imuDataStreaming       NOTIFY imuDataStreamingChanged) ///< true: HIGHRES_IMU still arriving from the flight controller
+    Q_PROPERTY(bool rcDataStreaming         READ rcDataStreaming        NOTIFY rcDataStreamingChanged)  ///< true: RC_CHANNELS still arriving from the flight controller
 
 public:
     explicit VehicleFactGroup(QObject *parent = nullptr);
@@ -72,11 +76,18 @@ public:
     Fact *imuTemp() { return &_imuTempFact; }
     Fact *rcRSSI() { return &_rcRSSIFact; }
 
+    bool imuDataStreaming() const { return _imuDataStreaming; }
+    bool rcDataStreaming() const { return _rcDataStreaming; }
+
     void handleMessage(Vehicle *vehicle, const mavlink_message_t &message) override;
 
     /// Write a raw RSSI sample (0-100, or 255 for invalid) through the low-pass filter
     /// into the rcRSSI Fact. Called by Vehicle when an RC_CHANNELS message arrives.
     void updateRCRSSI(uint8_t rssi);
+
+signals:
+    void imuDataStreamingChanged(bool imuDataStreaming);
+    void rcDataStreamingChanged(bool rcDataStreaming);
 
 protected:
     void _handleAttitude(Vehicle *vehicle, const mavlink_message_t &message);
@@ -86,6 +97,8 @@ protected:
     void _handleRawImuTemp(const mavlink_message_t &message);
     void _handleNavControllerOutput(const mavlink_message_t &message);
     void _handleRangefinder(const mavlink_message_t &message);
+    void _handleHighresImu(Vehicle *vehicle, const mavlink_message_t &message);
+    void _handleRcChannels(Vehicle *vehicle, const mavlink_message_t &message);
 
     Fact _rollFact = Fact(0, QStringLiteral("roll"), FactMetaData::valueTypeDouble);
     Fact _pitchFact = Fact(0, QStringLiteral("pitch"), FactMetaData::valueTypeDouble);
@@ -127,8 +140,21 @@ protected:
 
 private:
     void _handleAttitudeWorker(double rollRadians, double pitchRadians, double yawRadians);
+    /// Re-evaluate whether the IMU/RC streams are still arriving and emit any change.
+    void _updateStreamingState();
+
+    static constexpr int _streamTimeoutMSecs = 2000;             ///< A stream counts as stopped once nothing has arrived for this long
+    static constexpr int _streamWatchdogIntervalMSecs = 500;     ///< How often the timeout is re-evaluated while nothing is arriving
 
     bool _receivingAttitudeQuaternion = false;
+
+    // Streaming state for the preflight IMU/Radio checks. An invalid QElapsedTimer means no message
+    // of that type has been seen yet.
+    QElapsedTimer _lastHighresImuElapsed;
+    QElapsedTimer _lastRcChannelsElapsed;
+    QTimer _streamWatchdogTimer;
+    bool _imuDataStreaming = false;
+    bool _rcDataStreaming = false;
 
     // Low-pass filter state for rcRSSI. 255 is the sentinel "invalid/uninitialized" value.
     double _rcRSSIStore = 255.0;

@@ -27,8 +27,7 @@ Item {
             }
 
             PreFlightGPSCheck {
-                failureSatCount:        9
-                allowOverrideSatCount:  true
+                minSatCount: 5
             }
 
             PreFlightRCCheck {

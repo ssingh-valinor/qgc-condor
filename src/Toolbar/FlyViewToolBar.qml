@@ -102,6 +102,12 @@ Item {
                         Layout.fillHeight:  true
                         visible:            _activeVehicle
                     }
+
+                    ConopIndicator {
+                        objectName:         "toolbar_conopIndicator"
+                        Layout.fillHeight:  true
+                        visible:            _activeVehicle
+                    }
                 }
             }
             Item {

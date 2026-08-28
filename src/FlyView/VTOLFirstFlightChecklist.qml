@@ -30,6 +30,9 @@ Item {
                 manualText:     qsTr("Tail secured?")
             }
 
+            PreFlightRTLAltCheck {
+            }
+
             PreFlightRCCheck {
             }
         }

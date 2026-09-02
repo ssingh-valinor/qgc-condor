@@ -397,38 +397,62 @@ void ParameterEditorController::_updateDiffSelectedCount()
     _setDiffProperty(_diffSelectedCount, selectedCount, &ParameterEditorController::diffSelectedCountChanged);
 }
 
+bool ParameterEditorController::sendDiffRow(int index, bool suppressRebootMessaging)
+{
+    if ((index < 0) || (index >= _diffList.count())) {
+        qCWarning(ParameterEditorControllerLog) << "sendDiffRow: index out of range:" << index;
+        return false;
+    }
+
+    ParameterEditorDiff* paramDiff = _diffList.value<ParameterEditorDiff*>(index);
+
+    if (paramDiff->cannotSend) {
+        qCDebug(ParameterEditorControllerLog) << "sendDiffRow: skipped (cannot send, not on vehicle) -" << paramDiff->name;
+        return false;
+    }
+
+    if (!paramDiff->load) {
+        qCDebug(ParameterEditorControllerLog) << "sendDiffRow: skipped (unchecked) -" << paramDiff->name;
+        return false;
+    }
+
+    if (paramDiff->noVehicleValue) {
+        qCDebug(ParameterEditorControllerLog) << "sendDiffRow: PARAM_SET new param -" << paramDiff->name
+            << "componentId:" << paramDiff->componentId << "value:" << paramDiff->fileValueVar;
+        _parameterMgr->_mavlinkParamSet(paramDiff->componentId, paramDiff->name, paramDiff->valueType, paramDiff->fileValueVar);
+        return true;
+    }
+
+    qCDebug(ParameterEditorControllerLog) << "sendDiffRow: fact write -" << paramDiff->name
+        << "componentId:" << paramDiff->componentId << "value:" << paramDiff->fileValueVar;
+    Fact* fact = _parameterMgr->getParameter(paramDiff->componentId, paramDiff->name);
+
+    // A bulk sender which raises its own consolidated reboot prompt turns off the per-parameter
+    // prompt Fact would otherwise trigger for the duration of the write.
+    FactMetaData* const metaData = fact->metaData();
+    const bool restoreRebootRequired = suppressRebootMessaging && metaData && metaData->vehicleRebootRequired();
+    if (restoreRebootRequired) {
+        metaData->setVehicleRebootRequired(false);
+    }
+    fact->setRawValue(paramDiff->fileValueVar);
+    if (restoreRebootRequired) {
+        metaData->setVehicleRebootRequired(true);
+    }
+
+    return true;
+}
+
 void ParameterEditorController::sendDiff(void)
 {
     int sentCount = 0;
-    int uncheckedCount = 0;
 
     for (int i=0; i<_diffList.count(); i++) {
-        ParameterEditorDiff* paramDiff = _diffList.value<ParameterEditorDiff*>(i);
-
-        if (paramDiff->cannotSend) {
-            qCDebug(ParameterEditorControllerLog) << "sendDiff: skipped (cannot send, not on vehicle) -" << paramDiff->name;
-            continue;
-        }
-
-        if (paramDiff->load) {
+        if (sendDiffRow(i)) {
             sentCount++;
-            if (paramDiff->noVehicleValue) {
-                qCDebug(ParameterEditorControllerLog) << "sendDiff: PARAM_SET new param -" << paramDiff->name
-                    << "componentId:" << paramDiff->componentId << "value:" << paramDiff->fileValueVar;
-                _parameterMgr->_mavlinkParamSet(paramDiff->componentId, paramDiff->name, paramDiff->valueType, paramDiff->fileValueVar);
-            } else {
-                qCDebug(ParameterEditorControllerLog) << "sendDiff: fact write -" << paramDiff->name
-                    << "componentId:" << paramDiff->componentId << "value:" << paramDiff->fileValueVar;
-                Fact* fact = _parameterMgr->getParameter(paramDiff->componentId, paramDiff->name);
-                fact->setRawValue(paramDiff->fileValueVar);
-            }
-        } else {
-            uncheckedCount++;
-            qCDebug(ParameterEditorControllerLog) << "sendDiff: skipped (unchecked) -" << paramDiff->name;
         }
     }
 
-    qCDebug(ParameterEditorControllerLog) << "sendDiff summary - sent:" << sentCount << "unchecked:" << uncheckedCount;
+    qCDebug(ParameterEditorControllerLog) << "sendDiff summary - sent:" << sentCount << "of" << _diffList.count();
 }
 
 bool ParameterEditorController::buildDiffFromFile(const QString& filename)

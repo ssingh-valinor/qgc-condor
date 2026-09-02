@@ -1,3 +1,11 @@
+target_sources(${CMAKE_PROJECT_NAME}
+    PRIVATE
+        ConopController.cc
+        ConopController.h
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 qt_add_library(ToolbarModule STATIC)
 
 qt_add_qml_module(ToolbarModule
@@ -8,6 +16,7 @@ qt_add_qml_module(ToolbarModule
         ArmedIndicator.qml
         BatteryIndicator.qml
         ConopIndicator.qml
+        ConopSendDialog.qml
         EscIndicator.qml
         EscIndicatorPage.qml
         FlightModeIndicator.qml

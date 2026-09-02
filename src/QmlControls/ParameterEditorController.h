@@ -157,6 +157,12 @@ public:
     Q_INVOKABLE bool buildDiffFromFile              (const QString& filename);
     Q_INVOKABLE void clearDiff                      (void);
     Q_INVOKABLE void sendDiff                       (void);
+
+    /// Sends a single row of the current diff to the vehicle.
+    ///     @param suppressRebootMessaging true: temporarily clear the parameter's reboot-required flag so a
+    ///             bulk send can raise one consolidated reboot prompt instead of a per-parameter one
+    /// @return true: row was sent, false: row was skipped (unchecked or cannot be sent)
+    Q_INVOKABLE bool sendDiffRow                    (int index, bool suppressRebootMessaging = false);
     Q_INVOKABLE void refresh                        (void);
     Q_INVOKABLE void resetAllToDefaults             (void);
     Q_INVOKABLE void resetAllToVehicleConfiguration (void);
